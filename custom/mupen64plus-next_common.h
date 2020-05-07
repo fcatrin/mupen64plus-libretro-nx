@@ -62,6 +62,11 @@ extern enum rsp_plugin_type current_rsp_type;
 extern retro_environment_t environ_cb;
 extern bool libretro_swap_buffer;
 
+// Savestate globals
+extern bool retro_savestate_complete;
+extern int  retro_savestate_result;
+
+// 64DD globals
 extern char* retro_dd_path_img;
 extern char* retro_dd_path_rom;
 

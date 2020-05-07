@@ -1,20 +1,20 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *   Mupen64plus-Next - libretro.c                                       *
- *   Copyright (C) 2020 M4xw <m4x@m4xw.net                               *
- *                                                                    *
+ *   Mupen64plus-Next - libretro.c                                         *
+ *   Copyright (C) 2020 M4xw <m4x@m4xw.net>                                *
+ *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
  *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                 *
- *                                                                    *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
  *   This program is distributed in the hope that it will be useful,       *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                         *
- *                                                                    *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                        *
- *   Free Software Foundation, Inc.,                                     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -38,6 +38,7 @@ Thread* thread = NULL;
 #include <pthread.h>
 #include <glsm/glsmsym.h>
 
+#define M64P_CORE_PROTOTYPES
 #include "api/m64p_frontend.h"
 #include "api/m64p_types.h"
 #include "device/r4300/r4300_core.h"
@@ -143,6 +144,8 @@ float retro_screen_aspect = 4.0 / 3.0;
 
 char* retro_dd_path_img;
 char* retro_dd_path_rom;
+bool retro_savestate_complete = false;
+int  retro_savestate_result = 0;
 
 uint32_t bilinearMode = 0;
 uint32_t EnableHybridFilter = 0;
@@ -237,12 +240,23 @@ static void setup_variables(void)
 
     libretro_set_core_options(environ_cb);
     environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
+    //environ_cb(RETRO_ENVIRONMENT_SET_SAVE_STATE_IN_BACKGROUND, false);
 }
 
+static void n64StateCallback(void *Context, m64p_core_param param_type, int new_value)
+{
+    printf("State: %d\n", param_type);
+    fflush(stdout);
+    if(param_type == M64CORE_STATE_LOADCOMPLETE || param_type == M64CORE_STATE_SAVECOMPLETE)
+    {
+        retro_savestate_complete = true;
+        retro_savestate_result = new_value;
+    }
+}
 
 static bool emu_step_load_data()
 {
-    m64p_error ret = CoreStartup(FRONTEND_API_VERSION, ".", ".", "Core", n64DebugCallback, 0, 0);
+    m64p_error ret = CoreStartup(FRONTEND_API_VERSION, ".", ".", NULL, n64DebugCallback, 0, n64StateCallback);
     if(ret && log_cb)
         log_cb(RETRO_LOG_ERROR, CORE_NAME ": failed to initialize core (err=%i)\n", ret);
 
@@ -1506,11 +1520,27 @@ bool retro_serialize(void *data, size_t size)
     if (initializing)
         return false;
 
-    int success = savestates_save_m64p(&g_dev, data);
-    if (success)
-        return true;
+    retro_savestate_complete = false;
+    retro_savestate_result = 0;
 
-    return false;
+    savestates_set_job(savestates_job_save, savestates_type_m64p, data);
+
+    while(!retro_savestate_complete)
+    {
+        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+        {
+            glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+        }
+
+        co_switch(game_thread);
+
+        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+        {
+            glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+        }
+    }
+    
+    return !!retro_savestate_result;
 }
 
 bool retro_unserialize(const void * data, size_t size)
@@ -1518,11 +1548,27 @@ bool retro_unserialize(const void * data, size_t size)
     if (initializing)
         return false;
 
-    int success = savestates_load_m64p(&g_dev, data);
-    if (success)
-        return true;
+    retro_savestate_complete = false;
+    retro_savestate_result = 0;
+    
+    savestates_set_job(savestates_job_load, savestates_type_m64p, data);
 
-    return false;
+    while(!retro_savestate_complete)
+    {
+        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+        {
+            glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
+        }
+
+        co_switch(game_thread);
+
+        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+        {
+            glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
+        }
+    }
+    
+    return true;
 }
 
 //Needed to be able to detach controllers for Lylat Wars multiplayer
