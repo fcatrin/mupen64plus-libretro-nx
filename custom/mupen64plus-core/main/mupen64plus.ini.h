@@ -15,7 +15,6 @@ char inifile[] =
 "Status=1\n"
 "Rumble=Yes\n"
 "Players=4\n"
-"CountPerOp=1\n"
 "\n"
 "[34AB1DEA3111A233A8B5C5679DE22E83]\n"
 "GoodName=007 - The World is Not Enough (E) (M3) [!]\n"
@@ -12701,7 +12700,6 @@ char inifile[] =
 "SaveType=None\n"
 "Mempak=Yes\n"
 "Rumble=Yes\n"
-"CountPerOp=1\n"
 "\n"
 "[55A789C553827114306E29D71E26E5DC]\n"
 "GoodName=Quake II (E) [h1C]\n"
@@ -12715,7 +12713,6 @@ char inifile[] =
 "SaveType=None\n"
 "Mempak=Yes\n"
 "Rumble=Yes\n"
-"CountPerOp=1\n"
 "\n"
 "[920FAACCE1F8A80022433ACFD5CD2BC3]\n"
 "GoodName=Quake II (U) [f1] (PAL)\n"
@@ -18031,3 +18028,4 @@ char inifile[] =
 "\n";
 
 #endif
+
