@@ -33,12 +33,10 @@
 
 #ifdef HAVE_LIBNX
 #include <switch.h>
-Thread* thread = NULL;
 #endif
 #include <pthread.h>
 #include <glsm/glsmsym.h>
 
-#define M64P_CORE_PROTOTYPES
 #include "api/m64p_frontend.h"
 #include "api/m64p_types.h"
 #include "device/r4300/r4300_core.h"
@@ -301,12 +299,7 @@ static void emu_step_initialize(void)
     plugin_connect_all();
 }
 
-#ifdef HAVE_LIBNX
-#define EMUTHREAD_RET_TYPE void
-#else
-#define EMUTHREAD_RET_TYPE void*
-#endif
-static EMUTHREAD_RET_TYPE EmuThreadFunction(void* param)
+static void* EmuThreadFunction(void* param)
 {
     log_cb(RETRO_LOG_DEBUG, CORE_NAME ": [EmuThread] M64CMD_EXECUTE\n");
 
@@ -319,9 +312,6 @@ static EMUTHREAD_RET_TYPE EmuThreadFunction(void* param)
     {
         // Unset
         emuThreadRunning = false;
-#ifdef HAVE_LIBNX
-        threadExit();
-#endif
     }
 }
 
@@ -1338,6 +1328,9 @@ bool retro_load_game(const struct retro_game_info *game)
         }
     }
 
+    // Init savestate job var
+    retro_savestate_complete = true;
+
     glsm_ctx_params_t params = {0};
     format_saved_memory();
 
@@ -1405,17 +1398,13 @@ void retro_unload_game(void)
        }
        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
     
-#ifndef HAVE_LIBNX
        pthread_join(emuThread, NULL);
-#else
-       threadWaitForExit(thread);
-       threadClose(thread);
-       free(thread);
-       thread = NULL;
-#endif
     }
 
     emu_initialized = false;
+
+    // Reset savestate job var
+    retro_savestate_complete = false;
 }
 
 void retro_run (void)
@@ -1434,15 +1423,7 @@ void retro_run (void)
        {
           if(!emuThreadRunning)
           {
-#ifndef HAVE_LIBNX
              pthread_create(&emuThread, NULL, &EmuThreadFunction, NULL);
-#else
-             thread = (Thread*)malloc(sizeof(Thread));
-             u32 thread_priority = 0;
-             svcGetThreadPriority(&thread_priority, CUR_THREAD_HANDLE);
-             threadCreate(thread, EmuThreadFunction, NULL, NULL, 1024 * 1024 * 12, thread_priority - 1, 2);
-             threadStart(thread);
-#endif
              emuThreadRunning = true;
           }
        }
@@ -1527,17 +1508,7 @@ bool retro_serialize(void *data, size_t size)
 
     while(!retro_savestate_complete)
     {
-        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
-        {
-            glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
-        }
-
-        co_switch(game_thread);
-
-        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
-        {
-            glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
-        }
+        retro_run();
     }
     
     return !!retro_savestate_result;
@@ -1555,17 +1526,7 @@ bool retro_unserialize(const void * data, size_t size)
 
     while(!retro_savestate_complete)
     {
-        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
-        {
-            glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
-        }
-
-        co_switch(game_thread);
-
-        if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
-        {
-            glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
-        }
+        retro_run();
     }
     
     return true;

@@ -88,6 +88,11 @@ namespace opengl {
 					timeToShutdown = command->isTimeToShutdown();
 				}
 			}
+			if(!retro_savestate_complete)
+			{				
+				// Yield to frontend
+        		co_switch(retro_thread);
+			}
 		}
 
         // Return
