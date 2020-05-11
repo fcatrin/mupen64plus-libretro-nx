@@ -243,8 +243,6 @@ static void setup_variables(void)
 
 static void n64StateCallback(void *Context, m64p_core_param param_type, int new_value)
 {
-    printf("State: %d\n", param_type);
-    fflush(stdout);
     if(param_type == M64CORE_STATE_LOADCOMPLETE || param_type == M64CORE_STATE_SAVECOMPLETE)
     {
         retro_savestate_complete = true;
