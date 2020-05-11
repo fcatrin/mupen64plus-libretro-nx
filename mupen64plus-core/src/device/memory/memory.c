@@ -85,11 +85,8 @@ void activate_memory_break_read(struct memory* mem, uint32_t address)
     struct mem_handler* saved_handler = &mem->saved_handlers[region];
     unsigned char* bp_check = &mem->bp_checks[region];
 
-    /* if neither read nor write bp is active, set dbg_handler */
-    if (!(*bp_check & (BP_CHECK_READ | BP_CHECK_WRITE))) {
-        *saved_handler = *handler;
-        *handler = *dbg_handler;
-    }
+    *saved_handler = *handler;
+    *handler = *dbg_handler;
 
     /* activate bp read */
     *bp_check |= BP_CHECK_READ;
@@ -104,11 +101,7 @@ void deactivate_memory_break_read(struct memory* mem, uint32_t address)
 
     /* desactivate bp read */
     *bp_check &= ~BP_CHECK_READ;
-
-    /* if neither read nor write bp is active, restore handler */
-    if (!(*bp_check & (BP_CHECK_READ | BP_CHECK_WRITE))) {
-        *handler = *saved_handler;
-    }
+    *handler = *saved_handler;
 }
 
 void activate_memory_break_write(struct memory* mem, uint32_t address)
@@ -119,11 +112,8 @@ void activate_memory_break_write(struct memory* mem, uint32_t address)
     struct mem_handler* saved_handler = &mem->saved_handlers[region];
     unsigned char* bp_check = &mem->bp_checks[region];
 
-    /* if neither read nor write bp is active, set dbg_handler */
-    if (!(*bp_check & (BP_CHECK_READ | BP_CHECK_WRITE))) {
-        *saved_handler = *handler;
-        *handler = *dbg_handler;
-    }
+    *saved_handler = *handler;
+    *handler = *dbg_handler;
 
     /* activate bp write */
     *bp_check |= BP_CHECK_WRITE;
@@ -138,11 +128,7 @@ void deactivate_memory_break_write(struct memory* mem, uint32_t address)
 
     /* desactivate bp write */
     *bp_check &= ~BP_CHECK_WRITE;
-
-    /* if neither read nor write bp is active, restore handler */
-    if (!(*bp_check & (BP_CHECK_READ | BP_CHECK_WRITE))) {
-        *handler = *saved_handler;
-    }
+    *handler = *saved_handler;
 }
 
 int get_memory_type(struct memory* mem, uint32_t address)
@@ -187,14 +173,8 @@ static void map_region(struct memory* mem,
     /* set region type */
     mem->memtype[region] = type;
 
-    /* set handler */
-    if (lookup_breakpoint(((uint32_t)region << 16), 0x10000,
-                          M64P_BKP_FLAG_ENABLED) != -1)
-    {
-        mem->saved_handlers[region] = *handler;
-        mem->handlers[region] = mem->dbg_handler;
-    }
-    else
+    mem->saved_handlers[region] = *handler;
+    mem->handlers[region] = mem->dbg_handler;
 #endif
     {
         (void)type;
