@@ -633,8 +633,6 @@ void new_vi(void)
 
     gs_apply_cheats(&g_cheat_ctx);
 
-    main_check_inputs();
-
     retro_return();
 }
 
