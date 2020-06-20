@@ -138,6 +138,7 @@ int l_cbutton;
 int d_cbutton;
 int u_cbutton;
 bool alternate_mapping;
+bool is_8bitdo;
 
 static uint8_t* game_data = NULL;
 static uint32_t game_size = 0;
@@ -376,6 +377,8 @@ static void setup_variables(void)
            "Up C Button; C4|C1|C2|C3"},
         { CORE_NAME "-alt-map",
            "Independent C-button Controls; False|True" },
+		{ CORE_NAME "-8bitdo",
+		   "Automatic 8bitdo mapping; False|True" },
         { CORE_NAME "-ForceDisableExtraMem",
            "Disable Expansion Pak; False|True"},
         { CORE_NAME "-pak1",
@@ -1239,6 +1242,13 @@ static void update_variables(bool startup)
        if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
        {
           alternate_mapping = !strcmp(var.value, "False") ? 0 : 1;
+       }
+
+       var.key = CORE_NAME "-8bitdo";
+       var.value = NULL;
+       if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+       {
+          is_8bitdo = !strcmp(var.value, "False") ? 0 : 1;
        }
 
        var.key = CORE_NAME "-ForceDisableExtraMem";

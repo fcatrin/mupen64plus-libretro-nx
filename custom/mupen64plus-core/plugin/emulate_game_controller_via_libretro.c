@@ -47,6 +47,7 @@ extern int l_cbutton;
 extern int d_cbutton;
 extern int u_cbutton;
 extern bool alternate_mapping;
+extern bool is_8bitdo;
 static bool libretro_supports_bitmasks = false;
 
 extern m64p_rom_header ROM_HEADER;
@@ -105,6 +106,37 @@ static void inputGetKeys_default_descriptor(void)
          { 0 },
       };
       environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
+   }
+   else if (is_8bitdo)
+   {
+	#define custom_8bitdo_map(PAD) \
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B,      "B Button" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A,      "A Button" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y,      "C-Left" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X,      "C-Down" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R,      "R Shoulder" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L,      "L Shoulder" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2,     "C-Up" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2,     "C-Right" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Z Trigger" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START,  "Start" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT,  "D-Pad Right" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,   "D-Pad Left" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN,   "D-Pad Down" },\
+	{ PAD, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,     "D-Pad Up" },\
+	{ PAD, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT,  RETRO_DEVICE_ID_ANALOG_X, "Control Stick X" },\
+	{ PAD, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT,  RETRO_DEVICE_ID_ANALOG_Y, "Control Stick Y" },\
+	{ PAD, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X, "C Buttons X" },\
+	{ PAD, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y, "C Buttons Y" },
+
+	static struct retro_input_descriptor desc[] = {
+		custom_8bitdo_map(0)
+		custom_8bitdo_map(1)
+		custom_8bitdo_map(2)
+		custom_8bitdo_map(3)
+	   { 0 },
+	};
+	environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
    }
    else
    {
@@ -334,7 +366,6 @@ void inputGetKeys_default( int Control, BUTTONS *Keys )
    Keys->D_DPAD       = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_DOWN)));
    Keys->U_DPAD       = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_UP)));
    Keys->START_BUTTON = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_START)));
-   Keys->Z_TRIG       = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_L2)));
 
    if (alternate_mapping)
    {
@@ -346,11 +377,24 @@ void inputGetKeys_default( int Control, BUTTONS *Keys )
       Keys->U_CBUTTON = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_X)));
       Keys->R_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_R2)));
       Keys->L_TRIG    = !!((ret & (1 <<RETRO_DEVICE_ID_JOYPAD_SELECT)));
+      Keys->Z_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_L2)));
+   }
+   else if (is_8bitdo) {
+	  Keys->A_BUTTON  = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_B)));
+	  Keys->B_BUTTON  = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_A)));
+	  Keys->R_CBUTTON = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_R2)));
+	  Keys->L_CBUTTON = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_X)));
+	  Keys->D_CBUTTON = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_Y)));
+	  Keys->U_CBUTTON = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_L2)));
+	  Keys->R_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_R)));
+	  Keys->L_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_L)));
+	  Keys->Z_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_SELECT)));
    }
    else
    {
       Keys->R_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_R)));
       Keys->L_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_L)));
+      Keys->Z_TRIG    = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_L2)));
 
       cbuttons_mode   = !!((ret & (1 << RETRO_DEVICE_ID_JOYPAD_R2)));
 
