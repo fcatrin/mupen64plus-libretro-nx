@@ -53,6 +53,7 @@
 #include "device/rcp/pi/pi_controller.h"
 #include "device/pif/pif.h"
 #include "libretro_memory.h"
+#include "libretro_automap.h"
 
 #include "audio_plugin.h"
 
@@ -137,8 +138,8 @@ int r_cbutton;
 int l_cbutton;
 int d_cbutton;
 int u_cbutton;
+int auto_map;
 bool alternate_mapping;
-bool is_8bitdo;
 
 static uint8_t* game_data = NULL;
 static uint32_t game_size = 0;
@@ -377,8 +378,8 @@ static void setup_variables(void)
            "Up C Button; C4|C1|C2|C3"},
         { CORE_NAME "-alt-map",
            "Independent C-button Controls; False|True" },
-		{ CORE_NAME "-8bitdo",
-		   "Automatic 8bitdo mapping; False|True" },
+		{ CORE_NAME "-auto-map",
+		   "Automatic mapping; none|8BitDo|SwitchN64" },
         { CORE_NAME "-ForceDisableExtraMem",
            "Disable Expansion Pak; False|True"},
         { CORE_NAME "-pak1",
@@ -1244,11 +1245,14 @@ static void update_variables(bool startup)
           alternate_mapping = !strcmp(var.value, "False") ? 0 : 1;
        }
 
-       var.key = CORE_NAME "-8bitdo";
+       var.key = CORE_NAME "-auto-map";
        var.value = NULL;
        if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
        {
-          is_8bitdo = !strcmp(var.value, "False") ? 0 : 1;
+          bool is_8bitdo     = !strcmp(var.value, "8BitDo");
+          bool is_switch_n64 = !strcmp(var.value, "SwitchN64");
+          auto_map = is_8bitdo ? AUTO_MAP_8BITDO :
+            (is_switch_n64 ? AUTO_MAP_SWITCH_N64 : AUTO_MAP_DISABLED);
        }
 
        var.key = CORE_NAME "-ForceDisableExtraMem";

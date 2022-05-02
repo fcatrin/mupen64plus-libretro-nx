@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
 
 ROOT_DIR     := $(LOCAL_PATH)/../..
 LIBRETRO_DIR := $(ROOT_DIR)/libretro
-INCFLAGS     := -I$(ROOT_DIR)/GLideN64/src/GLideNHQ/inc
+INCFLAGS     := -I$(ROOT_DIR)/GLideN64/src/GLideNHQ/inc -I$(LIBRETRO_DIR)
 
 # Reset flags that the common makefile doesn't properly handle
 platform     := android
