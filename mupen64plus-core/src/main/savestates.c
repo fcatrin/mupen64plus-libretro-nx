@@ -25,6 +25,8 @@
 #ifdef USE_SDL
 #include <SDL.h>
 #include <SDL_thread.h>
+#else
+#include <pthread.h>
 #endif
 #include <stddef.h>
 #include <stdint.h>
@@ -60,11 +62,14 @@ enum { GB_CART_FINGERPRINT_OFFSET = 0x134 };
 enum { DD_DISK_ID_OFFSET = 0x43670 };
 
 static const char* savestate_magic = "M64+SAVE";
-static const int savestate_latest_version = 0x00010600;  /* 1.6 */
+static const int savestate_latest_version = 0x00010800;  /* 1.8 */
 static const unsigned char pj64_magic[4] = { 0xC8, 0xA6, 0xD8, 0x23 };
 
 static savestates_job job = savestates_job_nothing;
 static savestates_type type = savestates_type_unknown;
+
+// Libretro will re-use fname for the ptr
+// This avoids ifdef shenanigans
 static char *fname = NULL;
 
 static unsigned int slot = 0;
@@ -72,6 +77,8 @@ static int autoinc_save_slot = 0;
 
 #ifdef USE_SDL
 static SDL_mutex *savestates_lock;
+#else
+static pthread_mutex_t savestates_lock;
 #endif
 
 struct savestate_work {
@@ -158,16 +165,23 @@ savestates_job savestates_get_job(void)
 
 void savestates_set_job(savestates_job j, savestates_type t, const char *fn)
 {
+#ifndef __LIBRETRO__
     if (fname != NULL)
     {
         free(fname);
         fname = NULL;
     }
-
+#endif // __LIBRETRO__
     job = j;
     type = t;
+#ifndef __LIBRETRO__
     if (fn != NULL)
         fname = strdup(fn);
+#else
+    pthread_mutex_lock(&savestates_lock);
+    fname = (char*)fn;
+    pthread_mutex_unlock(&savestates_lock);
+#endif // __LIBRETRO__
 }
 
 static void savestates_clear_job(void)
@@ -206,12 +220,13 @@ int savestates_load_m64p(struct device* dev, const void *data)
     char queue[1024];
     unsigned char using_tlb_data[4];
     unsigned char data_0001_0200[4096]; // 4k for extra state from v1.2
-    uint64_t flashram_status;
 
     uint32_t* cp0_regs = r4300_cp0_regs(&dev->r4300.cp0);
 
 #ifdef USE_SDL
     SDL_LockMutex(savestates_lock);
+#else
+    pthread_mutex_lock(&savestates_lock);
 #endif
 
 #ifndef __LIBRETRO__
@@ -271,6 +286,8 @@ int savestates_load_m64p(struct device* dev, const void *data)
 #endif
 #ifdef USE_SDL
         SDL_UnlockMutex(savestates_lock);
+#else
+        pthread_mutex_unlock(&savestates_lock);
 #endif
         return 0;
     }
@@ -283,6 +300,8 @@ int savestates_load_m64p(struct device* dev, const void *data)
 #endif
 #ifdef USE_SDL
         SDL_UnlockMutex(savestates_lock);
+#else
+        pthread_mutex_unlock(&savestates_lock);
 #endif
         return 0;
     }
@@ -299,6 +318,8 @@ int savestates_load_m64p(struct device* dev, const void *data)
 #endif
 #ifdef USE_SDL
         SDL_UnlockMutex(savestates_lock);
+#else
+        pthread_mutex_unlock(&savestates_lock);
 #endif
         return 0;
     }
@@ -371,6 +392,8 @@ int savestates_load_m64p(struct device* dev, const void *data)
 #endif
 #ifdef USE_SDL
     SDL_UnlockMutex(savestates_lock);
+#else
+    pthread_mutex_unlock(&savestates_lock);
 #endif
 
     // Parse savestate
@@ -493,12 +516,9 @@ int savestates_load_m64p(struct device* dev, const void *data)
     COPYARRAY(dev->pif.ram, curr, uint8_t, PIF_RAM_SIZE);
 
     dev->cart.use_flashram = GETDATA(curr, int32_t);
-    dev->cart.flashram.mode = GETDATA(curr, int32_t);
-    flashram_status = GETDATA(curr, uint64_t);
-    dev->cart.flashram.status[0] = (uint32_t)(flashram_status >> 32);
-    dev->cart.flashram.status[1] = (uint32_t)(flashram_status);
-    dev->cart.flashram.erase_offset = GETDATA(curr, uint32_t);
-    dev->cart.flashram.write_pointer = GETDATA(curr, uint32_t);
+    curr += 4+8+4+4; /* Here there used to be flashram state */
+    /* by default, reset flashram state here and load it later if available */
+    poweron_flashram(&dev->cart.flashram);
 
     COPYARRAY(dev->r4300.cp0.tlb.LUT_r, curr, uint32_t, 0x100000);
     COPYARRAY(dev->r4300.cp0.tlb.LUT_w, curr, uint32_t, 0x100000);
@@ -584,7 +604,7 @@ int savestates_load_m64p(struct device* dev, const void *data)
 
         /* extra cart_rom state */
         dev->cart.cart_rom.last_write = GETDATA(curr, uint32_t);
-        dev->cart.cart_rom.rom_written = GETDATA(curr, uint32_t);
+        curr += 4; /* used to be cart_rom.rom_written */
 
         /* extra sp state */
         curr += 4; /* here there used to be rsp_task_locked */
@@ -615,8 +635,12 @@ int savestates_load_m64p(struct device* dev, const void *data)
             uint8_t rtc_regs[MBC3_RTC_REGS_COUNT];
             uint8_t rtc_latched_regs[MBC3_RTC_REGS_COUNT];
             uint8_t cam_regs[POCKET_CAM_REGS_COUNT];
-            unsigned int rom_bank, ram_bank, ram_enable, mbc1_mode, rtc_latch;
-            time_t rtc_last_time;
+            unsigned int rom_bank = 0;
+            unsigned int ram_bank = 0;
+            unsigned int ram_enable = 0;
+            unsigned int mbc1_mode = 0;
+            unsigned int rtc_latch = 0;
+            time_t rtc_last_time = 0;
 
             unsigned int enabled = ALIGNED_GETDATA(curr, uint32_t);
             unsigned int bank = ALIGNED_GETDATA(curr, uint32_t);
@@ -724,7 +748,7 @@ int savestates_load_m64p(struct device* dev, const void *data)
 
         /* extra cart_rom state */
         dev->cart.cart_rom.last_write = GETDATA(curr, uint32_t);
-        dev->cart.cart_rom.rom_written = GETDATA(curr, uint32_t);
+        curr +=4; /* used to be cart_rom.rom_written */
 
         /* extra sp state */
         curr += 4; /* here there used to be rsp_task_locked */
@@ -756,8 +780,12 @@ int savestates_load_m64p(struct device* dev, const void *data)
             uint8_t rtc_regs[MBC3_RTC_REGS_COUNT];
             uint8_t rtc_latched_regs[MBC3_RTC_REGS_COUNT];
             uint8_t cam_regs[POCKET_CAM_REGS_COUNT];
-            unsigned int rom_bank, ram_bank, ram_enable, mbc1_mode, rtc_latch;
-            time_t rtc_last_time;
+            unsigned int rom_bank = 0;
+            unsigned int ram_bank = 0;
+            unsigned int ram_enable = 0;
+            unsigned int mbc1_mode = 0;
+            unsigned int rtc_latch = 0;
+            time_t rtc_last_time = 0;
 
             unsigned int enabled = GETDATA(curr, uint32_t);
             unsigned int bank = GETDATA(curr, uint32_t);
@@ -893,9 +921,9 @@ int savestates_load_m64p(struct device* dev, const void *data)
                 dev->dd.rtc.last_update_rtc = (time_t)GETDATA(curr, int64_t);
                 dev->dd.bm_write = (unsigned char)GETDATA(curr, uint32_t);
                 dev->dd.bm_reset_held = (unsigned char)GETDATA(curr, uint32_t);
-                dev->dd.bm_block = (unsigned char)GETDATA(curr, uint32_t);
+                curr += sizeof(uint32_t); /* was bm_block */
                 dev->dd.bm_zone = GETDATA(curr, uint32_t);
-                dev->dd.bm_track_offset = GETDATA(curr, uint32_t);
+                curr += sizeof(uint32_t); /* was bm_track_offset */
             }
             else {
                 curr += (3+DD_ASIC_REGS_COUNT)*sizeof(uint32_t) + 0x100 + 0x40 + 2*sizeof(int64_t) + 2*sizeof(unsigned int);
@@ -910,6 +938,31 @@ int savestates_load_m64p(struct device* dev, const void *data)
             curr += sizeof(uint32_t);
 #endif
         }
+
+        if (version >= 0x00010700)
+        {
+            dev->sp.fifo[0].dir = GETDATA(curr, uint32_t);
+            dev->sp.fifo[0].length = GETDATA(curr, uint32_t);
+            dev->sp.fifo[0].memaddr = GETDATA(curr, uint32_t);
+            dev->sp.fifo[0].dramaddr = GETDATA(curr, uint32_t);
+            dev->sp.fifo[1].dir = GETDATA(curr, uint32_t);
+            dev->sp.fifo[1].length = GETDATA(curr, uint32_t);
+            dev->sp.fifo[1].memaddr = GETDATA(curr, uint32_t);
+            dev->sp.fifo[1].dramaddr = GETDATA(curr, uint32_t);
+        }
+        else {
+            memset(dev->sp.fifo, 0, SP_DMA_FIFO_SIZE*sizeof(struct sp_dma));
+        }
+
+        if (version >= 0x00010800)
+        {
+            /* extra flashram state */
+            COPYARRAY(dev->cart.flashram.page_buf, curr, uint8_t, 128);
+            COPYARRAY(dev->cart.flashram.silicon_id, curr, uint32_t, 2);
+            dev->cart.flashram.status = GETDATA(curr, uint32_t);
+            dev->cart.flashram.erase_page = GETDATA(curr, uint16_t);
+            dev->cart.flashram.mode = GETDATA(curr, uint16_t);
+        }
     }
     else
     {
@@ -919,7 +972,6 @@ int savestates_load_m64p(struct device* dev, const void *data)
 
         /* extra cart_rom state */
         dev->cart.cart_rom.last_write = 0;
-        dev->cart.cart_rom.rom_written = 0;
 
         /* extra af-rtc state */
         dev->cart.af_rtc.control = 0x200;
@@ -1199,7 +1251,6 @@ static int savestates_load_pj64(struct device* dev,
 
     /* extra cart_rom state */
     dev->cart.cart_rom.last_write = 0;
-    dev->cart.cart_rom.rom_written = 0;
 
     // ri_register
     dev->ri.regs[RI_MODE_REG]         = GETDATA(curr, uint32_t);
@@ -1437,9 +1488,12 @@ static savestates_type savestates_detect_type(char *filepath)
 
 int savestates_load(void)
 {
+    int ret = 0;
+    struct device* dev = &g_dev;
+
+#ifndef __LIBRETRO__
     FILE *fPtr = NULL;
     char *filepath = NULL;
-    int ret = 0;
 
     if (fname == NULL) // For slots, autodetect the savestate type
     {
@@ -1483,10 +1537,10 @@ int savestates_load(void)
             fPtr = fopen(filepath, "rb"); // can I open this?
         if (fPtr == NULL)
         {
+            main_message(M64MSG_STATUS, OSD_BOTTOM_LEFT, "Failed to open savestate file %s", filepath);
             if (filepath != NULL)
                 free(filepath);
             filepath = NULL;
-            main_message(M64MSG_STATUS, OSD_BOTTOM_LEFT, "Failed to open savestate file %s", filepath);
         }
     }
     if (fPtr != NULL)
@@ -1494,8 +1548,6 @@ int savestates_load(void)
 
     if (filepath != NULL)
     {
-        struct device* dev = &g_dev;
-
         switch (type)
         {
             case savestates_type_m64p: ret = savestates_load_m64p(dev, filepath); break;
@@ -1506,6 +1558,15 @@ int savestates_load(void)
         free(filepath);
         filepath = NULL;
     }
+#else
+    if(fname)
+    {
+        ret = savestates_load_m64p(dev, fname);
+        fname = NULL;
+    } else {
+        ret = 0;
+    }
+#endif // __LIBRETRO__
 
     // deliver callback to indicate completion of state loading operation
     StateChanged(M64CORE_STATE_LOADCOMPLETE, ret);
@@ -1521,6 +1582,8 @@ static void savestates_save_m64p_work(struct work_struct *work)
 
 #ifdef USE_SDL
     SDL_LockMutex(savestates_lock);
+#else
+    pthread_mutex_lock(&savestates_lock);
 #endif
 
 #ifndef __LIBRETRO__
@@ -1558,6 +1621,8 @@ static void savestates_save_m64p_work(struct work_struct *work)
 
 #ifdef USE_SDL
     SDL_UnlockMutex(savestates_lock);
+#else
+    pthread_mutex_unlock(&savestates_lock);
 #endif
 }
 
@@ -1569,7 +1634,6 @@ int savestates_save_m64p(const struct device* dev, void *data)
 {
     unsigned char outbuf[4];
     int i;
-    uint64_t flashram_status;
 
     char queue[1024];
 
@@ -1765,11 +1829,7 @@ int savestates_save_m64p(const struct device* dev, void *data)
     PUTARRAY(dev->pif.ram, curr, uint8_t, PIF_RAM_SIZE);
 
     PUTDATA(curr, int32_t, dev->cart.use_flashram);
-    PUTDATA(curr, int32_t, dev->cart.flashram.mode);
-    flashram_status = ((uint64_t)dev->cart.flashram.status[0] << 32) | dev->cart.flashram.status[1];
-    PUTDATA(curr, uint64_t, flashram_status);
-    PUTDATA(curr, uint32_t, dev->cart.flashram.erase_offset);
-    PUTDATA(curr, uint32_t, dev->cart.flashram.write_pointer);
+    curr += 4+8+4+4; // Here used to be flashram state
 
     PUTARRAY(dev->r4300.cp0.tlb.LUT_r, curr, uint32_t, 0x100000);
     PUTARRAY(dev->r4300.cp0.tlb.LUT_w, curr, uint32_t, 0x100000);
@@ -1831,7 +1891,7 @@ int savestates_save_m64p(const struct device* dev, void *data)
     PUTDATA(curr, uint32_t, dev->ai.delayed_carry);
 
     PUTDATA(curr, uint32_t, dev->cart.cart_rom.last_write);
-    PUTDATA(curr, uint32_t, dev->cart.cart_rom.rom_written);
+    PUTDATA(curr, uint32_t, 0); /* used to be cart_rom.rom_written */
 
     PUTDATA(curr, uint32_t, 0); /* here there used to be rsp_task_locked */
 
@@ -1940,9 +2000,9 @@ int savestates_save_m64p(const struct device* dev, void *data)
         PUTDATA(curr, int64_t, (int64_t)dev->dd.rtc.last_update_rtc);
         PUTDATA(curr, uint32_t, dev->dd.bm_write);
         PUTDATA(curr, uint32_t, dev->dd.bm_reset_held);
-        PUTDATA(curr, uint32_t, dev->dd.bm_block);
+        PUTDATA(curr, uint32_t, 0); /* was bm_track_block */
         PUTDATA(curr, uint32_t, dev->dd.bm_zone);
-        PUTDATA(curr, uint32_t, dev->dd.bm_track_offset);
+        PUTDATA(curr, uint32_t, 0); /* was bm_track_offset */
     }
 
 #ifdef NEW_DYNAREC
@@ -1950,6 +2010,21 @@ int savestates_save_m64p(const struct device* dev, void *data)
 #else
     PUTDATA(curr, uint32_t, 0);
 #endif
+    PUTDATA(curr, uint32_t, dev->sp.fifo[0].dir);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[0].length);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[0].memaddr);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[0].dramaddr);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[1].dir);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[1].length);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[1].memaddr);
+    PUTDATA(curr, uint32_t, dev->sp.fifo[1].dramaddr);
+
+    /* extra flashram state (since 1.8) */
+    PUTARRAY(dev->cart.flashram.page_buf, curr, uint8_t, 128);
+    PUTARRAY(dev->cart.flashram.silicon_id, curr, uint32_t, 2);
+    PUTDATA(curr, uint32_t, dev->cart.flashram.status);
+    PUTDATA(curr, uint16_t, dev->cart.flashram.erase_page);
+    PUTDATA(curr, uint16_t, dev->cart.flashram.mode);
 
     init_work(&save->work, savestates_save_m64p_work);
     queue_work(&save->work);
@@ -2194,9 +2269,11 @@ static int savestates_save_pj64_unc(const struct device* dev, char *filepath)
 
 int savestates_save(void)
 {
-    char *filepath;
     int ret = 0;
     const struct device* dev = &g_dev;
+
+#ifndef __LIBRETRO__
+    char *filepath;
 
     /* Can only save PJ64 savestates on VI / COMPARE interrupt.
        Otherwise try again in a little while. */
@@ -2222,11 +2299,21 @@ int savestates_save(void)
         }
         free(filepath);
     }
+#else
+    if(fname)
+    {
+        ret = savestates_save_m64p(dev, fname);
+        fname = NULL;
+    } else {
+        ret = 0;
+    }
+#endif // __LIBRETRO__
 
     // deliver callback to indicate completion of state saving operation
     StateChanged(M64CORE_STATE_SAVECOMPLETE, ret);
 
     savestates_clear_job();
+
     return ret;
 }
 

@@ -1,13 +1,17 @@
 RSPDIR             = $(ROOT_DIR)/mupen64plus-rsp-hle
 CXD4DIR            = $(ROOT_DIR)/mupen64plus-rsp-cxd4
 CORE_DIR           = $(ROOT_DIR)/mupen64plus-core
-PNG_DIR            = $(ROOT_DIR)/custom/dependencies/libpng
-ZLIB_DIR           = $(ROOT_DIR)/custom/dependencies/libzlib
 LIBRETRO_COMM_DIR  = $(ROOT_DIR)/libretro-common
 RSPDIR_PARALLEL    = $(ROOT_DIR)/mupen64plus-rsp-paraLLEl
 AUDIO_LIBRETRO_DIR = $(ROOT_DIR)/custom/mupen64plus-core/plugin/audio_libretro
 VIDEODIR_GLIDEN64  = $(ROOT_DIR)/GLideN64
 VIDEODIR_ANGRYLION = $(ROOT_DIR)/mupen64plus-video-angrylion
+VIDEODIR_PARALLEL  = $(ROOT_DIR)/mupen64plus-video-paraLLEl
+
+MINIZIP_DIR        = $(CORE_DIR)/subprojects/minizip
+LIBPNG_DIR         = $(ROOT_DIR)/custom/dependencies/libpng
+XXHASH_DIR         = $(ROOT_DIR)/xxHash
+ZLIB_DIR           = $(ROOT_DIR)/custom/dependencies/libzlib
 
 DYNAREC_USED := 0
 
@@ -23,26 +27,12 @@ INCFLAGS += \
 	-I$(AUDIO_LIBRETRO_DIR) \
 	-I$(LIBRETRO_COMM_DIR)/include \
 	-I$(LIBRETRO_DIR) \
-	-I$(VIDEODIR_GLIDEN64)/src/inc \
-	-I$(ROOT_DIR)/xxHash \
-	-I$(PNG_DIR) \
-	-I$(ZLIB_DIR)
+	-I$(VIDEODIR_GLIDEN64)/src/inc
 
-ifneq (,$(findstring win,$(platform)))
-	INCFLAGS += -I$(ROOT_DIR)/custom/mman-win32
-endif
-
-ifeq ($(LLE), 1)
-SOURCES_C += \
-	$(ROOT_DIR)/custom/mupen64plus-rsp-cxd4/module.c \
-	$(CXD4DIR)/su.c \
-	$(CXD4DIR)/vu/add.c \
-	$(CXD4DIR)/vu/divide.c \
-	$(CXD4DIR)/vu/logical.c \
-	$(CXD4DIR)/vu/multiply.c \
-	$(CXD4DIR)/vu/select.c \
-	$(CXD4DIR)/vu/vu.c
-endif
+MINIZIP_INCFLAGS = -I$(MINIZIP_DIR)
+LIBPNG_INCFLAGS  = -I$(LIBPNG_DIR)
+XXHASH_INCFLAGS  = -I$(XXHASH_DIR)
+ZLIB_INCFLAGS    = -I$(ZLIB_DIR)
 
 SOURCES_C = \
 	$(CORE_DIR)/src/asm_defines/asm_defines.c \
@@ -61,6 +51,7 @@ SOURCES_C = \
 	$(CORE_DIR)/src/device/cart/cart_rom.c \
 	$(CORE_DIR)/src/device/cart/eeprom.c \
 	$(CORE_DIR)/src/device/cart/flashram.c \
+	$(CORE_DIR)/src/device/cart/is_viewer.c \
 	$(CORE_DIR)/src/device/cart/sram.c \
 	$(CORE_DIR)/src/device/controllers/game_controller.c \
 	$(CORE_DIR)/src/device/controllers/paks/biopak.c \
@@ -68,6 +59,7 @@ SOURCES_C = \
 	$(CORE_DIR)/src/device/controllers/paks/rumblepak.c \
 	$(CORE_DIR)/src/device/controllers/paks/transferpak.c \
 	$(CORE_DIR)/src/device/dd/dd_controller.c \
+	$(CORE_DIR)/src/device/dd/disk.c \
 	$(CORE_DIR)/src/device/device.c \
 	$(CORE_DIR)/src/device/gb/gb_cart.c \
 	$(CORE_DIR)/src/device/gb/mbc3_rtc.c \
@@ -102,7 +94,32 @@ SOURCES_C = \
 	$(CORE_DIR)/src/main/savestates.c \
 	$(CORE_DIR)/src/plugin/plugin.c \
 	$(CORE_DIR)/src/plugin/dummy_audio.c \
-	$(CORE_DIR)/src/plugin/dummy_input.c \
+	$(CORE_DIR)/src/plugin/dummy_input.c
+	#$(CORE_DIR)/src/main/netplay.c
+
+MINIZIP_SOURCES_C = \
+	$(MINIZIP_DIR)/zip.c \
+	$(MINIZIP_DIR)/unzip.c \
+	$(MINIZIP_DIR)/ioapi.c
+
+LIBPNG_SOURCES_C = \
+	$(LIBPNG_DIR)/png.c \
+	$(LIBPNG_DIR)/pngerror.c \
+	$(LIBPNG_DIR)/pngget.c \
+	$(LIBPNG_DIR)/pngmem.c \
+	$(LIBPNG_DIR)/pngpread.c \
+	$(LIBPNG_DIR)/pngread.c \
+	$(LIBPNG_DIR)/pngrio.c \
+	$(LIBPNG_DIR)/pngrtran.c \
+	$(LIBPNG_DIR)/pngrutil.c \
+	$(LIBPNG_DIR)/pngset.c \
+	$(LIBPNG_DIR)/pngtrans.c \
+	$(LIBPNG_DIR)/pngwio.c \
+	$(LIBPNG_DIR)/pngwrite.c \
+	$(LIBPNG_DIR)/pngwtran.c \
+	$(LIBPNG_DIR)/pngwutil.c
+
+ZLIB_SOURCES_C = \
 	$(ZLIB_DIR)/adler32.c \
 	$(ZLIB_DIR)/compress.c \
 	$(ZLIB_DIR)/crc32.c \
@@ -117,22 +134,7 @@ SOURCES_C = \
 	$(ZLIB_DIR)/inftrees.c \
 	$(ZLIB_DIR)/trees.c \
 	$(ZLIB_DIR)/uncompr.c \
-	$(ZLIB_DIR)/zutil.c \
-	$(PNG_DIR)/png.c \
-	$(PNG_DIR)/pngerror.c \
-	$(PNG_DIR)/pngget.c \
-	$(PNG_DIR)/pngmem.c \
-	$(PNG_DIR)/pngpread.c \
-	$(PNG_DIR)/pngread.c \
-	$(PNG_DIR)/pngrio.c \
-	$(PNG_DIR)/pngrtran.c \
-	$(PNG_DIR)/pngrutil.c \
-	$(PNG_DIR)/pngset.c \
-	$(PNG_DIR)/pngtrans.c \
-	$(PNG_DIR)/pngwio.c \
-	$(PNG_DIR)/pngwrite.c \
-	$(PNG_DIR)/pngwtran.c \
-	$(PNG_DIR)/pngwutil.c
+	$(ZLIB_DIR)/zutil.c
 
 AWK_DEST_DIR    := $(CORE_DIR)/src/asm_defines
 ASM_DEFINES_OBJ := $(AWK_DEST_DIR)/asm_defines.o
@@ -142,17 +144,40 @@ SOURCES_C += \
 	$(CORE_DIR)/subprojects/md5/md5.c
 COREFLAGS += -I$(CORE_DIR)/subprojects/md5
 
+# libpng
+ifeq ($(SYSTEM_LIBPNG), 1)
+	CFLAGS += $(shell pkg-config --cflags libpng)
+	LDFLAGS += $(shell pkg-config --libs libpng)
+else
+	INCFLAGS += $(LIBPNG_INCFLAGS)
+	SOURCES_C += $(LIBPNG_SOURCES_C)
+endif
+
 # Minizip
-SOURCES_C += \
-	$(CORE_DIR)/subprojects/minizip/zip.c \
-	$(CORE_DIR)/subprojects/minizip/unzip.c \
-	$(CORE_DIR)/subprojects/minizip/ioapi.c
-COREFLAGS += -I$(CORE_DIR)/subprojects/minizip
+ifeq ($(SYSTEM_MINIZIP), 1)
+	CFLAGS += $(shell pkg-config --cflags minizip)
+	LDFLAGS += $(shell pkg-config --libs minizip)
+else
+	INCFLAGS += $(MINIZIP_INCFLAGS)
+	SOURCES_C += $(MINIZIP_SOURCES_C)
+endif
 
 # xxHash
-SOURCES_C += \
-	$(CORE_DIR)/subprojects/xxhash/xxhash.c
-COREFLAGS += -I$(CORE_DIR)/subprojects/xxhash
+ifeq ($(SYSTEM_XXHASH), 1)
+	CFLAGS += $(shell pkg-config --cflags libxxhash)
+	LDFLAGS += $(shell pkg-config --libs libxxhash)
+else
+	INCFLAGS += $(XXHASH_INCFLAGS)
+endif
+
+# zlib
+ifeq ($(SYSTEM_ZLIB), 1)
+	CFLAGS += $(shell pkg-config --cflags zlib)
+	LDFLAGS += $(shell pkg-config --libs zlib)
+else
+	INCFLAGS += $(ZLIB_INCFLAGS)
+	SOURCES_C += $(ZLIB_SOURCES_C)
+endif
 
 ifneq (,$(findstring win,$(platform)))
 	SOURCES_C += $(VIDEODIR_GLIDEN64)/src/osal/osal_files_win32.c
@@ -206,16 +231,16 @@ endif
 # Libretro
 SOURCES_C += $(LIBRETRO_DIR)/libretro.c \
 	$(LIBRETRO_COMM_DIR)/memmap/memalign.c \
-	$(LIBRETRO_COMM_DIR)/audio/resampler/audio_resampler.c \
 	$(ROOT_DIR)/custom/mupen64plus-core/plugin/emulate_game_controller_via_libretro.c \
 	$(LIBRETRO_COMM_DIR)/audio/resampler/drivers/sinc_resampler.c \
 	$(LIBRETRO_COMM_DIR)/audio/resampler/drivers/nearest_resampler.c \
-	$(LIBRETRO_COMM_DIR)/audio/resampler/drivers/null_resampler.c \
+	$(LIBRETRO_COMM_DIR)/audio/resampler/audio_resampler.c \
 	$(AUDIO_LIBRETRO_DIR)/audio_backend_libretro.c \
 	$(LIBRETRO_COMM_DIR)/file/config_file.c \
 	$(LIBRETRO_COMM_DIR)/file/config_file_userdata.c \
 	$(LIBRETRO_COMM_DIR)/file/file_path.c \
-	$(LIBRETRO_COMM_DIR)/hash/rhash.c \
+	$(LIBRETRO_COMM_DIR)/file/file_path_io.c \
+	$(LIBRETRO_COMM_DIR)/time/rtime.c \
 	$(LIBRETRO_COMM_DIR)/compat/compat_strl.c \
 	$(LIBRETRO_COMM_DIR)/compat/compat_posix_string.c \
 	$(LIBRETRO_COMM_DIR)/compat/compat_strcasestr.c \
@@ -231,7 +256,7 @@ SOURCES_C += $(LIBRETRO_DIR)/libretro.c \
 	$(ROOT_DIR)/custom/mupen64plus-core/api/vidext_libretro.c \
 	$(LIBRETRO_COMM_DIR)/glsm/glsm.c
 
-	
+
 SOURCES_CXX   += \
 	$(VIDEODIR_GLIDEN64)/src/Combiner.cpp                                                         \
     $(VIDEODIR_GLIDEN64)/src/CombinerKey.cpp                                                      \
@@ -250,7 +275,6 @@ SOURCES_CXX   += \
     $(VIDEODIR_GLIDEN64)/src/gDP.cpp                                                              \
     $(VIDEODIR_GLIDEN64)/src/GLideN64.cpp                                                         \
     $(VIDEODIR_GLIDEN64)/src/gSP.cpp                                                              \
-    $(VIDEODIR_GLIDEN64)/src/Keys.cpp                                                             \
     $(VIDEODIR_GLIDEN64)/src/N64.cpp                                                              \
     $(VIDEODIR_GLIDEN64)/src/TextDrawer.cpp                                                       \
     $(VIDEODIR_GLIDEN64)/src/PaletteTexture.cpp                                                   \
@@ -268,6 +292,7 @@ SOURCES_CXX   += \
     $(VIDEODIR_GLIDEN64)/src/NoiseTexture.cpp                                                     \
     $(VIDEODIR_GLIDEN64)/src/DepthBufferRender/ClipPolygon.cpp                                    \
     $(VIDEODIR_GLIDEN64)/src/DepthBufferRender/DepthBufferRender.cpp                              \
+    $(VIDEODIR_GLIDEN64)/src/BufferCopy/BlueNoiseTexture.cpp                                    \
     $(VIDEODIR_GLIDEN64)/src/BufferCopy/ColorBufferToRDRAM.cpp                                    \
     $(VIDEODIR_GLIDEN64)/src/BufferCopy/DepthBufferToRDRAM.cpp                                    \
     $(VIDEODIR_GLIDEN64)/src/BufferCopy/RDRAMtoColorBuffer.cpp                                    \
@@ -300,6 +325,12 @@ SOURCES_CXX   += \
     $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramBuilder.cpp          \
     $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramImpl.cpp             \
     $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramUniformFactory.cpp   \
+    $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramUniformFactoryAccurate.cpp \
+    $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramUniformFactoryFast.cpp     \
+    $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramUniformFactoryCommon.cpp   \
+    $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramBuilderCommon.cpp    \
+    $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramBuilderAccurate.cpp  \
+    $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_CombinerProgramBuilderFast.cpp      \
     $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_FXAA.cpp                            \
     $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_ShaderStorage.cpp                   \
     $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GLSL/glsl_SpecialShadersFactory.cpp           \
@@ -334,13 +365,8 @@ SOURCES_CXX   += \
 	$(VIDEODIR_GLIDEN64)/src/MupenPlusPluginAPI.cpp                                               \
 	$(VIDEODIR_GLIDEN64)/src/mupenplus/MupenPlusAPIImpl.cpp                                       \
 	$(ROOT_DIR)/custom/GLideN64/mupenplus/Config_mupenplus.cpp                                    \
-	$(ROOT_DIR)/custom/GLideN64/mupenplus/CommonAPIImpl_mupenplus.cpp
-ifneq (,$(findstring android,$(platform)))
-	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/GLideNHQ/txWidestringWrapper.cpp \
-		$(VIDEODIR_GLIDEN64)/src/Log_android.cpp
-else
-	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/Log.cpp
-endif
+	$(ROOT_DIR)/custom/GLideN64/mupenplus/CommonAPIImpl_mupenplus.cpp							  \
+	$(VIDEODIR_GLIDEN64)/src/Log.cpp
 
 SOURCES_CXX   += \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TextureFilters.cpp \
@@ -353,6 +379,8 @@ SOURCES_CXX   += \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxFilter.cpp \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxFilterExport.cpp \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxHiResCache.cpp \
+	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxHiResNoCache.cpp \
+	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxHiResLoader.cpp \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxImage.cpp \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxQuantize.cpp \
 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxReSample.cpp \
@@ -389,10 +417,22 @@ ifeq ($(LLE), 1)
 	SOURCES_C += $(CXD4DIR)/rsp.c
 endif
 
+ifeq ($(HAVE_PARALLEL_RDP),1)
+	PARALLEL_RDP_IMPLEMENTATION = $(VIDEODIR_PARALLEL)/parallel-rdp
+	include $(PARALLEL_RDP_IMPLEMENTATION)/config.mk
+	CFLAGS   += $(PARALLEL_RDP_CFLAGS) -DHAVE_PARALLEL_RDP
+	CXXFLAGS += $(PARALLEL_RDP_CXXFLAGS) -DHAVE_PARALLEL_RDP
+	INCFLAGS += $(PARALLEL_RDP_INCLUDE_DIRS)
+	SOURCES_CXX += $(PARALLEL_RDP_SOURCES_CXX) $(VIDEODIR_PARALLEL)/parallel.cpp $(VIDEODIR_PARALLEL)/rdp.cpp
+	SOURCES_C += $(PARALLEL_RDP_SOURCES_C)
+	LDFLAGS += $(PARALLEL_RDP_LDFLAGS)
+endif
+
 ifeq ($(HAVE_PARALLEL_RSP), 1)
 	PARALLEL_RSP_ARCH := simd
 	SOURCES_CXX += $(RSPDIR_PARALLEL)/parallel.cpp \
 				   $(RSPDIR_PARALLEL)/rsp_disasm.cpp \
+				   $(RSPDIR_PARALLEL)/jit_allocator.cpp \
 				   $(wildcard $(RSPDIR_PARALLEL)/rsp/*.cpp) \
 				   $(wildcard $(RSPDIR_PARALLEL)/arch/$(PARALLEL_RSP_ARCH)/rsp/*.cpp)
 ifneq ($(DEBUG_JIT),)
@@ -419,17 +459,15 @@ endif
 
 ifneq (,$(findstring win,$(platform)))
 	SOURCES_C += $(RSPDIR_PARALLEL)/win32/mman/sys/mman.c
-	CFLAGS += -I$(RSPDIR_PARALLEL)/win32/mman
+	INCFLAGS += -I$(RSPDIR_PARALLEL)/win32/mman
 endif
 
 SOURCES_C += $(LIBRETRO_COMM_DIR)/libco/libco.c
 
-ifneq (,$(findstring rpi3,$(platform)))
-	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/CRC32_ARMV8.cpp
-else ifeq ($(platform), libnx)
+ifeq ($(platform), $(filter $(platform), rpi3 rpi4 libnx jetson-xavier))
 	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/CRC32_ARMV8.cpp
 else
-	SOURCES_CXX += $(ROOT_DIR)/custom/GLideN64/CRC.cpp
+	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/CRC_OPT.cpp
 endif
 
 ifeq ($(HAVE_NEON),1)
@@ -443,12 +481,14 @@ else
 	SOURCES_CXX   += $(VIDEODIR_GLIDEN64)/src/3DMath.cpp
 endif
 
-ifneq ($(platform), ios-arm64)
+ifneq ($(platform), $(filter $(platform), ios-arm64 tvos-arm64))
 	EGL_LIB ?= -lEGL
+else
+	SOURCES_C += $(ROOT_DIR)/custom/ios/compat.c
 endif
 
 ifeq ($(GLES3),1)
-	ifeq ($(platform),ios-arm64)
+	ifeq ($(platform), $(filter $(platform), ios-arm64 tvos-arm64))
 		GLFLAGS += -DHAVE_OPENGLES -DHAVE_OPENGLES3 -DGLES3
 	else
 		GLFLAGS += -DEGL -DHAVE_OPENGLES -DHAVE_OPENGLES3 -DGLES3
@@ -463,7 +503,7 @@ else ifeq ($(GLES),1)
 	GLFLAGS += -DEGL -DHAVE_OPENGLES -DHAVE_OPENGLES2 -DGLES2
 	LDFLAGS += $(EGL_LIB)
 	SOURCES_C += $(LIBRETRO_COMM_DIR)/glsym/glsym_es2.c
-	
+
 	ifeq ($(ANDROID),1)
 		SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GraphicBuffer/GraphicBufferWrapper.cpp \
 		               $(VIDEODIR_GLIDEN64)/src/Graphics/OpenGLContext/GraphicBuffer/PublicApi/android_hardware_buffer_compat.cpp

@@ -53,6 +53,8 @@ namespace graphics {
 		extern BufferAttachmentParam COLOR_ATTACHMENT0;
 		extern BufferAttachmentParam COLOR_ATTACHMENT1;
 		extern BufferAttachmentParam COLOR_ATTACHMENT2;
+		extern BufferAttachmentParam COLOR_ATTACHMENT3;
+		extern BufferAttachmentParam COLOR_ATTACHMENT4;
 		extern BufferAttachmentParam DEPTH_ATTACHMENT;
 	}
 
@@ -79,6 +81,8 @@ namespace graphics {
 	namespace textureImageUnits {
 		extern ImageUnitParam DepthZ;
 		extern ImageUnitParam DepthDeltaZ;
+		extern ImageUnitParam DepthZCopy;
+		extern ImageUnitParam DepthDeltaZCopy;
 	}
 
 	namespace textureImageAccessMode {
@@ -117,11 +121,16 @@ namespace graphics {
 		extern BlendParam ONE_MINUS_SRC_ALPHA;
 		extern BlendParam CONSTANT_ALPHA;
 		extern BlendParam ONE_MINUS_CONSTANT_ALPHA;
+		extern BlendParam SRC1_COLOR;
+		extern BlendParam ONE_MINUS_SRC1_COLOR;
+		extern BlendParam SRC1_ALPHA;
+		extern BlendParam ONE_MINUS_SRC1_ALPHA;
 	}
 
 	namespace drawmode {
 		extern DrawModeParam TRIANGLES;
 		extern DrawModeParam TRIANGLE_STRIP;
+		extern DrawModeParam TRIANGLE_FAN;
 		extern DrawModeParam LINES;
 	}
 

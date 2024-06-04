@@ -158,15 +158,11 @@ void add_interrupt_event_count(struct cp0* cp0, int type, unsigned int count)
     {
         cp0->q.first = event;
         event->next = NULL;
-        *cp0_next_interrupt = cp0->q.first->data.count;
-        *cp0_cycle_count = cp0_regs[CP0_COUNT_REG] - cp0->q.first->data.count;
     }
     else if (before_event(cp0, count, cp0->q.first->data.count, cp0->q.first->data.type))
     {
         event->next = cp0->q.first;
         cp0->q.first = event;
-        *cp0_next_interrupt = cp0->q.first->data.count;
-        *cp0_cycle_count = cp0_regs[CP0_COUNT_REG] - cp0->q.first->data.count;
     }
     else
     {
@@ -188,6 +184,8 @@ void add_interrupt_event_count(struct cp0* cp0, int type, unsigned int count)
             e->next = event;
         }
     }
+    *cp0_next_interrupt = cp0->q.first->data.count;
+    *cp0_cycle_count = cp0_regs[CP0_COUNT_REG] - cp0->q.first->data.count;
 }
 
 void remove_interrupt_event(struct cp0* cp0)
@@ -468,8 +466,8 @@ void nmi_int_handler(void* opaque)
     r4300->recomp.dyna_interp = 0;
 #endif
     // set next instruction address to reset vector
-    r4300->cp0.last_addr = UINT32_C(0xa4000040);
-    generic_jump_to(r4300, UINT32_C(0xa4000040));
+    r4300->cp0.last_addr = r4300->start_address;
+    generic_jump_to(r4300, r4300->start_address);
 }
 
 
@@ -479,14 +477,48 @@ void reset_hard_handler(void* opaque)
     struct device* dev = (struct device*)opaque;
     struct r4300_core* r4300 = &dev->r4300;
 
+#ifndef NEW_DYNAREC
+#if defined(__x86_64__)
+    long long save_rsp = r4300->recomp.save_rsp;
+    long long save_rip = r4300->recomp.save_rip;
+#else
+    long save_ebp = r4300->recomp.save_ebp;
+    long save_ebx = r4300->recomp.save_ebx;
+    long save_esi = r4300->recomp.save_esi;
+    long save_edi = r4300->recomp.save_edi;
+    long save_esp = r4300->recomp.save_esp;
+    long save_eip = r4300->recomp.save_eip;
+#endif
+#endif
+
     poweron_device(dev);
 
     pif_bootrom_hle_execute(r4300);
-    r4300->cp0.last_addr = UINT32_C(0xa4000040);
+    r4300->cp0.last_addr = r4300->start_address;
     *r4300_cp0_next_interrupt(&r4300->cp0) = 624999;
     *r4300_cp0_cycle_count(&r4300->cp0) = 0;
     init_interrupt(&r4300->cp0);
     invalidate_r4300_cached_code(r4300, 0, 0);
+    *r4300_pc_struct(r4300) = &r4300->interp_PC;
+    if (r4300->emumode >= 2)
+    {
+#ifdef NEW_DYNAREC
+        new_dynarec_cleanup();
+        new_dynarec_init();
+#else
+#if defined(__x86_64__)
+        r4300->recomp.save_rsp = save_rsp;
+        r4300->recomp.save_rip = save_rip;
+#else
+        r4300->recomp.save_ebp = save_ebp;
+        r4300->recomp.save_ebx = save_ebx;
+        r4300->recomp.save_esi = save_esi;
+        r4300->recomp.save_edi = save_edi;
+        r4300->recomp.save_esp = save_esp;
+        r4300->recomp.save_eip = save_eip;
+#endif
+#endif
+    }
     generic_jump_to(r4300, r4300->cp0.last_addr);
 }
 
@@ -518,11 +550,11 @@ void gen_interrupt(struct r4300_core* r4300)
 
     if (!r4300->cp0.interrupt_unsafe_state)
     {
-        /*if (savestates_get_job() == savestates_job_load)
+        if (savestates_get_job() == savestates_job_load)
         {
             savestates_load();
             return;
-        }*/
+        }
 
         if (r4300->reset_hard_job)
         {
@@ -604,6 +636,11 @@ void gen_interrupt(struct r4300_core* r4300)
             call_interrupt_handler(&r4300->cp0, 10);
             break;
 
+        case RSP_DMA_EVT:
+            remove_interrupt_event(&r4300->cp0);
+            call_interrupt_handler(&r4300->cp0, 12);
+            break;
+
         default:
             DebugMessage(M64MSG_ERROR, "Unknown interrupt queue event type %.8X.", r4300->cp0.q.first->data.type);
             remove_interrupt_event(&r4300->cp0);
@@ -613,11 +650,11 @@ void gen_interrupt(struct r4300_core* r4300)
 
     if (!r4300->cp0.interrupt_unsafe_state)
     {
-        /*if (savestates_get_job() == savestates_job_save)
+        if (savestates_get_job() == savestates_job_save)
         {
             savestates_save();
             return;
-        }*/
+        }
     }
 }
 

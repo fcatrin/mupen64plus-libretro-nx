@@ -22,6 +22,7 @@ AWK          ?= awk
 STRINGS      ?= strings
 TR           ?= tr
 HAVE_PARALLEL_RSP ?= 0
+HAVE_PARALLEL_RDP ?= 0
 HAVE_THR_AL       ?= 0
 LLE               ?= 0
 LOCAL_SHORT_COMMANDS := true
@@ -33,20 +34,20 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   STRINGS := arm-linux-androideabi-$(STRINGS)
   LLE = 1
   HAVE_PARALLEL_RSP = 1
+  HAVE_PARALLEL_RDP = 1
   HAVE_THR_AL = 1
 else ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   WITH_DYNAREC := aarch64
   STRINGS := aarch64-linux-android-$(STRINGS)
   LLE = 1
   HAVE_PARALLEL_RSP = 1
+  HAVE_PARALLEL_RDP = 1
   HAVE_THR_AL = 1
 else ifeq ($(TARGET_ARCH_ABI),x86)
-  # X86 dynarec isn't position independent, so it fails to build on newer ndks.
-  # No warn shared textrel allows it to build, but still won't allow it to run on api 23+.
   WITH_DYNAREC := x86
   STRINGS := i686-linux-android-$(STRINGS)
-  COREASMFLAGS := -f elf -d ELF_TYPE
-  CORELDLIBS := -Wl,-no-warn-shared-textrel
+  COREASMFLAGS := -f elf -d ELF_TYPE -DPIC
+  COREFLAGS := -fPIC
 else ifeq ($(TARGET_ARCH_ABI),x86_64)
   WITH_DYNAREC := x86_64
   STRINGS := x86_64-linux-android-$(STRINGS)
@@ -65,6 +66,10 @@ COREFLAGS += -D__LIBRETRO__ -DOS_ANDROID -DUSE_FILE32API -DM64P_PLUGIN_API -DM64
 
 ifeq ($(LLE), 1)
    COREFLAGS += -DHAVE_LLE
+endif
+
+ifeq ($(HAVE_PARALLEL_RSP), 1)
+   COREFLAGS += -DHAVE_MMAP=1
 endif
 
 GIT_VERSION := " $(shell git rev-parse --short HEAD || echo unknown)"

@@ -139,6 +139,11 @@ static void gencp0_update_count(struct r4300_core* r4300, unsigned int addr)
     shr_reg32_imm8(EAX, 2);
     mov_xreg32_m32rel(EDX, (void*)&r4300->cp0.count_per_op);
     mul_reg32(EDX);
+    if (r4300->cp0.count_per_op_denom_pot)
+    {
+        add_reg32_imm32(EAX, (1 << g_dev.r4300.cp0.count_per_op_denom_pot) - 1);
+        shr_reg32_imm8(EAX, g_dev.r4300.cp0.count_per_op_denom_pot);
+    }
     add_m32rel_xreg32((unsigned int*)(&r4300_cp0_regs(&r4300->cp0)[CP0_COUNT_REG]), EAX);
     add_m32rel_xreg32((unsigned int*)(r4300_cp0_cycle_count(&r4300->cp0)), EAX);
 #else
@@ -4182,7 +4187,47 @@ void gen_SYSCALL(struct r4300_core* r4300)
 #endif
 }
 
-/* Exception instructions */
+/* Trap instructions */
+
+void gen_TGE(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TGE, 0);
+}
+
+void gen_TGEU(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TGEU, 0);
+}
+
+void gen_TGEI(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TGEI, 0);
+}
+
+void gen_TGEIU(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TGEIU, 0);
+}
+
+void gen_TLT(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TLT, 0);
+}
+
+void gen_TLTU(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TLTU, 0);
+}
+
+void gen_TLTI(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TLTI, 0);
+}
+
+void gen_TLTIU(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TLTIU, 0);
+}
 
 void gen_TEQ(struct r4300_core* r4300)
 {
@@ -4190,6 +4235,21 @@ void gen_TEQ(struct r4300_core* r4300)
     inc_m32rel(&instr_count[96]);
 #endif
     gencallinterp(r4300, (unsigned long long)cached_interp_TEQ, 0);
+}
+
+void gen_TEQI(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TEQI, 0);
+}
+
+void gen_TNE(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TNE, 0);
+}
+
+void gen_TNEI(struct r4300_core* r4300)
+{
+    gencallinterp(r4300, (unsigned long long)cached_interp_TNEI, 0);
 }
 
 /* TLB instructions */
