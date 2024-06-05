@@ -1645,6 +1645,21 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "False"
     },
     {
+        CORE_NAME "-auto-map",
+        "Automatic mapping",
+        NULL,
+        "Automatic mapping for real N64 controllers.",
+        NULL,
+        "input",
+        {
+            {"none", NULL},
+            {"8BitDo", NULL},
+            {"SwitchN64", NULL},
+            { NULL, NULL },
+        },
+        "none"
+    },
+    {
         CORE_NAME "-pak1",
         "Player 1 Pak",
         NULL,
