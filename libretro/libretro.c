@@ -2035,7 +2035,6 @@ void retro_run (void)
     }
 
     co_switch(game_thread);
-    poll_cb();
 
     if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
     {
