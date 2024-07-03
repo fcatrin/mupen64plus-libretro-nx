@@ -766,7 +766,7 @@ void new_vi(void)
     gs_apply_cheats(&g_cheat_ctx);
 
     // apply_speed_limiter();
-    main_check_inputs();
+    // main_check_inputs();
 
     netplay_check_sync(&g_dev.r4300.cp0);
     retro_return();
